@@ -60,12 +60,14 @@
 //!   `requests` and `responses`. Every type is also re-exported here at the
 //!   root, so `runpod::Pod` and `runpod::pods::Pod` are the same thing.
 //! - `logs/`: the two Server-Sent Events log streams, hand-written.
+//! - `openapi.rs`: [`Client::openapi_document`], the API's own OpenAPI document.
 //! - `error.rs`, `rate_limit.rs`: what calls fail with, and quota headers.
 
 mod api;
 mod client;
 mod error;
 mod logs;
+mod openapi;
 mod rate_limit;
 
 pub use api::*;

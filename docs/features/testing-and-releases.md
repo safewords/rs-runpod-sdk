@@ -17,7 +17,7 @@ and against a local mock server (`wiremock`).
 | File | Checks |
 |---|---|
 | `src/**` unit tests | Rate-limit header parsing, SSE parsing across chunks, path encoding, backoff and jitter bounds, key redaction. |
-| `tests/transport.rs` | Bearer auth, `X-Team-Id`, a GET retried after 503, a create *not* retried after 503 but retried after 429 with `Retry-After`, problem+json → `ApiError`, the attempt cap, rate-limit headers kept and a spent window waited out, signup without a key. |
+| `tests/transport.rs` | Bearer auth, `X-Team-Id`, a GET retried after 503, a create *not* retried after 503 but retried after 429 with `Retry-After`, problem+json → `ApiError`, the attempt cap, rate-limit headers kept and a spent window waited out, signup and the OpenAPI document without a key. |
 | `tests/operations.rs` | Query encoding (JSON `filters`, comma arrays, enums), escaped path ids, `_all` across two pages, `create_pod`'s 201 vs 202, 204 answers, Markdown answers, unknown enum values, credential redaction, omitted unset fields. |
 | `tests/logs.rs` | Pod and worker log streams end to end, with `Last-Event-ID`; an error status fails the call. |
 | `tests/spec_examples.rs` (generated) | Every request and response example in the document (132) decodes into its type and re-encodes to the same JSON, so a missing or misnamed field fails. Exceptions, with reasons: `tests/support/spec.rs:12`. |

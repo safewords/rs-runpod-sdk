@@ -9,7 +9,8 @@ It covers every operation in Runpod's OpenAPI document
 across Pods and queued Pods, Clusters, Serverless endpoints (workers,
 releases, builds, metrics, logs), templates, network and global volumes,
 container registries, the catalog, cost centers, tags, audit logs, billing,
-the account, the organization, and signup.
+the account, the organization, and signup. `Client::openapi_document()`
+also fetches that document itself, as the API overview describes.
 
 ```toml
 [dependencies]

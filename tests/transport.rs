@@ -221,6 +221,22 @@ async fn signup_works_without_a_key_and_sends_none() {
 }
 
 #[tokio::test]
+async fn the_openapi_document_needs_no_key() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/v2/openapi.json"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "openapi": "3.1.0" })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let client = Client::builder().base_url(server.uri()).build().unwrap();
+    let doc = client.openapi_document().await.unwrap();
+    assert_eq!(doc["openapi"], "3.1.0");
+    let received = server.received_requests().await.unwrap();
+    assert!(received[0].headers.get("authorization").is_none());
+}
+
+#[tokio::test]
 async fn a_spent_quota_window_is_waited_out_before_the_next_request() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))

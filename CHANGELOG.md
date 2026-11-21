@@ -26,6 +26,9 @@ Add what you change under `[Unreleased]` in the same commit as the change.
   and metrics, templates, network and global volumes, container registries
   and ECR delegations, the catalog, cost centers, tags, audit logs, billing,
   the account, secrets and SSH keys, the organization, and signup.
+- `Client::openapi_document()`: Runpod's own OpenAPI document
+  (`GET /v2/openapi.json`), which the API overview offers but the document
+  does not list among its paths.
 - Pod and Serverless worker logs as a `Stream` of events, resumable with
   `Last-Event-ID`.
 - `*_all` variants of every paginated list that follow the cursor to the end.

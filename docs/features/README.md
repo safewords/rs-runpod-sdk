@@ -8,7 +8,9 @@ It is a library: it deploys nothing. Its types and 119 of its methods are
 generated from a checked-in copy of Runpod's OpenAPI document
 (`openapi/runpod-v2.json`); the other two operations, the Server-Sent Events
 log streams, are hand-written. Every one of the document's 121 operations
-is covered; `codegen/operations.txt` lists the generated ones.
+is covered; `codegen/operations.txt` lists the generated ones. The overview
+page's `GET /v2/openapi.json`, which is not among the document's own paths,
+is `Client::openapi_document()` (`src/openapi.rs`).
 
 ```mermaid
 flowchart TB
