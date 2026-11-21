@@ -1,0 +1,124 @@
+# Release automatically when the version changes.
+#
+# On a push to main that touches Cargo.toml or CHANGELOG.md: if Cargo.toml's
+# version has no GitHub Release yet, require a `## [<version>]` section in
+# CHANGELOG.md, run the whole of ci.yml against the commit, then tag
+# `v<version>` at that commit and publish a GitHub Release whose notes are
+# that section. A version with a `-` (`0.2.0-rc.1`) is marked a prerelease.
+# A version already released is a no-op, so ordinary changelog edits under
+# [Unreleased] do nothing.
+#
+# To release: `python3 scripts/changelog.py release 0.2.0`, commit, merge to
+# main. Consumers pin the tag:
+#   runpod = { git = "https://github.com/safewords/rs-runpod-sdk", tag = "v0.2.0" }
+#
+# crates.io is off by default. To publish there too, set the repository
+# variable PUBLISH_TO_CRATES_IO=true and the secret CARGO_REGISTRY_TOKEN; a
+# version already on crates.io is skipped. Without them the GitHub Release is
+# the whole release. As of 2026-11-20 the name `runpod` on crates.io belongs to
+# an unrelated project, so publishing there needs a rename in Cargo.toml
+# first; the step refuses a crate whose repository is not this one.
+#
+# Run it by hand (Actions → release → Run workflow) to retry a release that
+# failed after its checks passed.
+name: release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Cargo.toml
+      - CHANGELOG.md
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: is there a version to release?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      release: ${{ steps.plan.outputs.release }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "::notice::v$VERSION is already released; nothing to do"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 scripts/changelog.py check
+          # Fails, and so stops the release, without a section for the version.
+          python3 scripts/changelog.py notes "$VERSION" > /dev/null
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
+  verify:
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: tag and publish v${{ needs.plan.outputs.version }}
+    needs: [plan, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          python3 scripts/changelog.py notes "$VERSION" > RELEASE_NOTES.md
+          {
+            echo
+            echo '```toml'
+            echo "runpod = { git = \"https://github.com/${{ github.repository }}\", tag = \"v$VERSION\" }"
+            echo '```'
+          } >> RELEASE_NOTES.md
+          PRERELEASE=""
+          case "$VERSION" in *-*) PRERELEASE="--prerelease" ;; esac
+          gh release create "v$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "rs-runpod-sdk v$VERSION" \
+            --notes-file RELEASE_NOTES.md \
+            $PRERELEASE
+      - name: crates.io
+        if: vars.PUBLISH_TO_CRATES_IO == 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          NAME=$(sed -n 's/^name = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          UA="rs-runpod-sdk release workflow"
+          OWNER_REPO=$(curl -fsS -A "$UA" "https://crates.io/api/v1/crates/$NAME" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["crate"].get("repository") or "")' || true)
+          if [ -n "$OWNER_REPO" ] && [ "${OWNER_REPO%/}" != "https://github.com/${{ github.repository }}" ]; then
+            echo "::error::the crate name $NAME on crates.io belongs to $OWNER_REPO; rename the package in Cargo.toml to publish there"
+            exit 1
+          fi
+          if curl -fsS -A "$UA" "https://crates.io/api/v1/crates/$NAME/$VERSION" >/dev/null 2>&1; then
+            echo "::notice::$NAME $VERSION is already on crates.io"
+            exit 0
+          fi
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            echo "::warning::PUBLISH_TO_CRATES_IO is set but CARGO_REGISTRY_TOKEN is not; the GitHub Release is published, crates.io is not"
+            exit 0
+          fi
+          cargo publish
