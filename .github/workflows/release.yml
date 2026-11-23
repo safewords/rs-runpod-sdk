@@ -41,7 +41,7 @@ concurrency:
 jobs:
   plan:
     name: is there a version to release?
-    runs-on: ubuntu-latest
+    runs-on: safewords-runners
     timeout-minutes: 5
     outputs:
       version: ${{ steps.plan.outputs.version }}
@@ -77,7 +77,7 @@ jobs:
   publish:
     name: tag and publish v${{ needs.plan.outputs.version }}
     needs: [plan, verify]
-    runs-on: ubuntu-latest
+    runs-on: safewords-runners
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
